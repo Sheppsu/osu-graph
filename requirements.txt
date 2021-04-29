@@ -1,0 +1,5 @@
+osu.py==0.1.7
+requests==2.25.0
+numpy==1.18.5
+matplotlib==3.3.2
+websockets==8.1
