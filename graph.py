@@ -43,7 +43,7 @@ def get_user_mode():
     while True:
         mode = input("Type the game mode you play(standard, mania, catch, or taiko): ").lower()
         if mode in valid_modes:
-            return mode
+            return mode_to_name[mode]
         print("That's not a valid game mode.")
 
 
