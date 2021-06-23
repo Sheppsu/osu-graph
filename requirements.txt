@@ -1,5 +1,5 @@
-osu.py==0.1.12
-requests==2.25.0
-numpy==1.18.5
-matplotlib==3.3.2
+osu.py>=0.1.12
+requests>=2.25.0
+numpy>=1.18.5
+matplotlib>=.3.2
 websockets>=9.1
