@@ -1,5 +1,7 @@
-from osu import AuthHandler, Client
-import requests
+from osu import Client
+from requests.exceptions import HTTPError
+from pytz import all_timezones, timezone
+from datetime import datetime, timedelta
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -23,10 +25,19 @@ client_id = get_valid_int("Enter your client id: ")
 client_secret = input("Enter your client secret: ").strip()
 redirect_uri = input("Enter your redirect uri: ").strip()
 
-auth = AuthHandler(client_id, client_secret, redirect_uri)
-auth.get_auth_token()
+client = Client.from_client_credentials(client_id, client_secret, redirect_uri)
 
-client = Client(auth)
+
+# Some timezone info
+tz_abbreviations = {}
+for name in all_timezones:
+    tzone = timezone(name)
+    for _, _, abbr in getattr(tzone, "_transition_info", [[None, None, datetime.now(tzone).tzname()]]):
+        if abbr not in tz_abbreviations:
+            tz_abbreviations[abbr] = []
+        if name in tz_abbreviations[abbr]:
+            continue
+        tz_abbreviations[abbr].append(name)
 
 
 def get_user():
@@ -35,7 +46,7 @@ def get_user():
         try:
             user = client.get_user(user_id)
             return user
-        except requests.exceptions.HTTPError:
+        except HTTPError:
             print("That's not a valid id")
 
 
@@ -47,34 +58,31 @@ def get_user_mode():
         print("That's not a valid game mode.")
 
 
-def round_to_hour(hour, minute, second):
-    if second >= 30:
-        minute += 1
-    if minute >= 30:
-        hour += 1
-    if hour == 24:
-        hour = 0
-    return hour
-
-
-def add_time(hour, tz):
-    hour += tz
-    if hour < 0:
-        hour = 24 + hour
-    if hour > 23:
-        hour -= 24
-    return int(hour)
+def get_timezone():
+    tz = None
+    lower_timezones = list(map(str.lower, all_timezones))
+    while tz is None:
+        tz = input("Enter your timezone (Ex. America/Louisville): ")
+        if tz not in lower_timezones:
+            if tz.upper() in tz_abbreviations:
+                tz = tz_abbreviations[tz.upper()][0]
+            else:
+                tz = None
+                print("Invalid timezone. Try checking out this site if you're having troubles "
+                      "entering a correct timezone: https://www.ibm.com/docs/en/cloudpakw3700/"
+                      "2.3.0.0?topic=SS6PD2_2.3.0/doc/psapsys_restapi/time_zone_list.html")
+        else:
+            tz = all_timezones[lower_timezones.index(tz)]
+    return timezone(tz)
 
 
 def organize_data(timestamps):
-    time_dict = {f'{time}:00': 0 for time in range(24)}
-    timezone = get_valid_int("Enter the utc offset of your timezone (Ex. -6): ")
-    for timestamp in timestamps:
-        date, time = timestamp.split('T')
-        time = time.split('+')[0]
-        hour, minute, second = [int(t) for t in time.split(':')]
-        hour = round_to_hour(hour, minute, second)
-        time_dict[f'{add_time(hour, timezone)}:00'] += 1
+    tz = get_timezone()
+    formatted_ts = [ts.astimezone(tz) for ts in timestamps]
+    time_dict = {f"{hour:02}:00": 0 for hour in range(24)}
+    for ts in formatted_ts:
+        ts = ts.replace(second=0, microsecond=0, minute=0, hour=ts.hour)+timedelta(hours=ts.minute//30)
+        time_dict[ts.strftime("%H:00")] += 1
 
     return time_dict
 
